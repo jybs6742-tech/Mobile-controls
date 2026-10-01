@@ -1,0 +1,934 @@
+-- MINI CONTROLE MOBILE V7
+
+if getgenv().MiniControle then
+	pcall(function()
+		getgenv().MiniControle:Destroy()
+	end)
+end
+
+getgenv().MiniControleDestroyed = false
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "MiniControle"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = game.CoreGui
+
+getgenv().MiniControle = gui
+
+local LAYOUT_VERSION = "NORMAL_V7"
+
+if getgenv().MiniControleLayoutVersion ~= LAYOUT_VERSION then
+	getgenv().MiniControlePositions = {}
+	getgenv().MiniControleLayoutVersion = LAYOUT_VERSION
+end
+
+local saved = getgenv().MiniControlePositions or {}
+getgenv().MiniControlePositions = saved
+
+local editando = false
+
+--------------------------------------------------
+-- CÓDIGOS DAS TECLAS
+--------------------------------------------------
+
+local KEY = {
+	W = 0x57,
+	A = 0x41,
+	S = 0x53,
+	D = 0x44,
+
+	T = 0x54,
+	R = 0x52,
+	E = 0x45,
+
+	I = 0x49,
+	O = 0x4F,
+
+	SHIFT = 0x10,
+	SPACE = 0x20,
+
+	["0"] = 0x30,
+	["1"] = 0x31,
+	["2"] = 0x32,
+	["3"] = 0x33,
+	["4"] = 0x34,
+	["5"] = 0x35,
+	["6"] = 0x36,
+	["7"] = 0x37,
+	["8"] = 0x38,
+	["9"] = 0x39
+}
+
+--------------------------------------------------
+-- ESTADO DAS TECLAS
+--------------------------------------------------
+
+local teclasPressionadas = {}
+
+local function pressionarTecla(codigo)
+	if typeof(keypress) ~= "function" then
+		return
+	end
+
+	if teclasPressionadas[codigo] then
+		return
+	end
+
+	teclasPressionadas[codigo] = true
+
+	pcall(function()
+		keypress(codigo)
+	end)
+end
+
+local function soltarTecla(codigo)
+	if not teclasPressionadas[codigo] then
+		return
+	end
+
+	teclasPressionadas[codigo] = nil
+
+	if typeof(keyrelease) == "function" then
+		pcall(function()
+			keyrelease(codigo)
+		end)
+	end
+end
+
+local function soltarTodasAsTeclas()
+	for codigo in pairs(teclasPressionadas) do
+		if typeof(keyrelease) == "function" then
+			pcall(function()
+				keyrelease(codigo)
+			end)
+		end
+	end
+
+	teclasPressionadas = {}
+end
+
+--------------------------------------------------
+-- POSIÇÃO
+--------------------------------------------------
+
+local function aplicarPos(obj, nome, padrao)
+	if saved[nome] then
+		obj.Position = saved[nome]
+	else
+		obj.Position = padrao
+	end
+end
+
+--------------------------------------------------
+-- ARRASTAR
+--------------------------------------------------
+
+local function arrastavel(obj, nome)
+
+	local dragging = false
+	local dragStart
+	local startPos
+
+	obj.InputBegan:Connect(function(input)
+
+		if not editando then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			dragging = true
+			dragStart = input.Position
+			startPos = obj.Position
+
+			input.Changed:Connect(function()
+
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					saved[nome] = obj.Position
+				end
+
+			end)
+
+		end
+
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+
+		if not dragging or not editando then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseMovement then
+
+			local delta = input.Position - dragStart
+
+			obj.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+
+		end
+
+	end)
+
+end
+
+--------------------------------------------------
+-- BOTÃO NORMAL
+--------------------------------------------------
+
+local function criarBotao(nome, texto, pos, tamanho)
+
+	local b = Instance.new("TextButton")
+
+	b.Name = nome
+	b.Size = tamanho or UDim2.new(0,40,0,40)
+
+	aplicarPos(b, nome, pos)
+
+	b.Text = texto
+	b.TextSize = 18
+
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.BackgroundTransparency = 0.15
+
+	b.BorderSizePixel = 1
+	b.BorderColor3 = Color3.fromRGB(100,100,100)
+
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Active = true
+
+	b.Parent = gui
+
+	arrastavel(b, nome)
+
+	return b
+end
+
+--------------------------------------------------
+-- DPAD
+--------------------------------------------------
+
+local dpad = Instance.new("Frame")
+
+dpad.Name = "DPad"
+dpad.Size = UDim2.new(0,160,0,160)
+
+dpad.BackgroundTransparency = 1
+dpad.Active = true
+
+aplicarPos(
+	dpad,
+	"DPad",
+	UDim2.new(0,25,1,-205)
+)
+
+dpad.Parent = gui
+
+do
+
+	local dragging = false
+	local dragStart
+	local startPos
+
+	dpad.InputBegan:Connect(function(input)
+
+		if not editando then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			dragging = true
+			dragStart = input.Position
+			startPos = dpad.Position
+
+			input.Changed:Connect(function()
+
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					saved.DPad = dpad.Position
+				end
+
+			end)
+
+		end
+
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+
+		if not dragging or not editando then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseMovement then
+
+			local delta = input.Position - dragStart
+
+			dpad.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+
+		end
+
+	end)
+
+end
+
+--------------------------------------------------
+-- DPAD REAL
+--------------------------------------------------
+
+local function criarDPad(nome, texto, pos, teclas)
+
+	local b = Instance.new("TextButton")
+
+	b.Name = nome
+	b.Size = UDim2.new(0,40,0,40)
+	b.Position = pos
+
+	b.Text = texto
+	b.TextSize = 21
+
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.BackgroundTransparency = 0.15
+
+	b.BorderSizePixel = 1
+	b.BorderColor3 = Color3.fromRGB(100,100,100)
+
+	b.TextColor3 = Color3.new(1,1,1)
+
+	b.Active = true
+	b.Parent = dpad
+
+	local pressionado = false
+
+	local function ligar()
+		if editando or pressionado then
+			return
+		end
+
+		pressionado = true
+
+		-- Pressiona todas as teclas da direção
+		for _, codigo in ipairs(teclas) do
+			pressionarTecla(codigo)
+		end
+	end
+
+	local function desligar()
+		if not pressionado then
+			return
+		end
+
+		pressionado = false
+
+		-- Solta todas as teclas da direção
+		for _, codigo in ipairs(teclas) do
+			soltarTecla(codigo)
+		end
+	end
+
+	b.InputBegan:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			ligar()
+
+		end
+
+	end)
+
+	b.InputEnded:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			desligar()
+
+		end
+
+	end)
+
+	b.MouseEnter:Connect(function()
+
+		if UserInputService.TouchEnabled then
+			return
+		end
+
+		ligar()
+
+	end)
+
+	b.MouseLeave:Connect(function()
+
+		if not UserInputService.TouchEnabled then
+			desligar()
+		end
+
+	end)
+
+	return b
+end
+
+local up = criarDPad(
+	"Up",
+	"W",
+	UDim2.new(0,60,0,-10),
+	{KEY.W}
+)
+
+local upLeft = criarDPad(
+	"UpLeft",
+	" ",
+	UDim2.new(0,20,0,0),
+	{KEY.W, KEY.A}
+)
+
+local upRight = criarDPad(
+	"UpRight",
+	" ",
+	UDim2.new(0,100,0,0),
+	{KEY.W, KEY.D}
+)
+
+local left = criarDPad(
+	"Left",
+	"A",
+	UDim2.new(0,10,0,40),
+	{KEY.A}
+)
+
+local right = criarDPad(
+	"Right",
+	"D",
+	UDim2.new(0,110,0,40),
+	{KEY.D}
+)
+
+local downLeft = criarDPad(
+	"DownLeft",
+	" ",
+	UDim2.new(0,20,0,80),
+	{KEY.S, KEY.A}
+)
+
+local down = criarDPad(
+	"Down",
+	"S",
+	UDim2.new(0,60,0,90),
+	{KEY.S}
+)
+
+local downRight = criarDPad(
+	"DownRight",
+	" ",
+	UDim2.new(0,100,0,80),
+	{KEY.S, KEY.D}
+)
+
+--------------------------------------------------
+-- EDITOR
+--------------------------------------------------
+
+local editor = criarBotao(
+	"Editor",
+	"☰",
+	UDim2.new(0.06,0,0.34,0),
+	UDim2.new(0,42,0,42)
+)
+
+editor.TextSize = 22
+editor.BackgroundColor3 = Color3.fromRGB(0,0,0)
+editor.BorderColor3 = Color3.fromRGB(255,0,0)
+
+--------------------------------------------------
+-- FECHAR
+--------------------------------------------------
+
+local fechar = Instance.new("TextButton")
+
+fechar.Name = "Close"
+fechar.Size = UDim2.new(0,32,0,32)
+
+aplicarPos(
+	fechar,
+	"Close",
+	UDim2.new(0.06,5,0.34,-34)
+)
+
+fechar.Text = "×"
+fechar.TextSize = 27
+
+fechar.BackgroundTransparency = 1
+fechar.BorderSizePixel = 0
+
+fechar.TextColor3 = Color3.fromRGB(255,70,70)
+
+fechar.Active = true
+fechar.Parent = gui
+
+arrastavel(fechar,"Close")
+
+--------------------------------------------------
+-- JUMP = SPACE REAL
+--------------------------------------------------
+
+local jump = criarBotao(
+	"Jump",
+	"□",
+	UDim2.new(1,-180,0,50),
+	UDim2.new(0,55,0,45)
+)
+
+jump.TextSize = 24
+
+local jumpPressionado = false
+
+jump.InputBegan:Connect(function(input)
+
+	if editando or jumpPressionado then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		jumpPressionado = true
+		pressionarTecla(KEY.SPACE)
+
+	end
+
+end)
+
+jump.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		jumpPressionado = false
+		soltarTecla(KEY.SPACE)
+
+	end
+
+end)
+
+--------------------------------------------------
+-- SHIFT
+--------------------------------------------------
+
+local shift = criarBotao(
+	"Shift",
+	"SHIFT",
+	UDim2.new(1,-220,0.20,0),
+	UDim2.new(0,40,0,40)
+)
+
+shift.TextSize = 12
+
+local function teclaHold(button, codigo)
+
+	local pressionado = false
+
+	local function pressionar()
+
+		if editando or pressionado then
+			return
+		end
+
+		pressionado = true
+		pressionarTecla(codigo)
+
+	end
+
+	local function soltar()
+
+		if not pressionado then
+			return
+		end
+
+		pressionado = false
+		soltarTecla(codigo)
+
+	end
+
+	button.InputBegan:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			pressionar()
+
+		end
+
+	end)
+
+	button.InputEnded:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.Touch
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			soltar()
+
+		end
+
+	end)
+
+	button.MouseLeave:Connect(function()
+
+		if pressionado then
+			soltar()
+		end
+
+	end)
+
+	return soltar
+end
+
+teclaHold(shift,KEY.SHIFT)
+
+--------------------------------------------------
+-- LMB
+--------------------------------------------------
+
+local lmb = criarBotao(
+	"LMB",
+	"LMB",
+	UDim2.new(1,-180,0.20,0),
+	UDim2.new(0,55,0,45)
+)
+
+lmb.MouseButton1Click:Connect(function()
+
+	if editando then
+		return
+	end
+
+	if typeof(mouse1click) == "function" then
+
+		pcall(mouse1click)
+
+	elseif typeof(mouse1press) == "function" then
+
+		pcall(mouse1press)
+
+		task.wait(0.05)
+
+		if typeof(mouse1release) == "function" then
+			pcall(mouse1release)
+		end
+
+	end
+
+end)
+
+--------------------------------------------------
+-- RMB
+--------------------------------------------------
+
+local rmb = criarBotao(
+	"RMB",
+	"RMB",
+	UDim2.new(1,-180,0.29,0),
+	UDim2.new(0,55,0,45)
+)
+
+rmb.MouseButton1Click:Connect(function()
+
+	if editando then
+		return
+	end
+
+	if typeof(mouse2click) == "function" then
+
+		pcall(mouse2click)
+
+	elseif typeof(mouserightclick) == "function" then
+
+		pcall(mouserightclick)
+
+	elseif typeof(mouse2press) == "function" then
+
+		pcall(mouse2press)
+
+		task.wait(0.05)
+
+		if typeof(mouse2release) == "function" then
+			pcall(mouse2release)
+		end
+
+	end
+
+end)
+
+--------------------------------------------------
+-- T R E
+--------------------------------------------------
+
+local function criarTecla(nome, letra, pos, codigo)
+
+	local b = criarBotao(
+		nome,
+		letra,
+		pos,
+		UDim2.new(0,40,0,40)
+	)
+
+	b.TextSize = 17
+
+	b.MouseButton1Click:Connect(function()
+
+		if editando then
+			return
+		end
+
+		pressionarTecla(codigo)
+
+		task.wait(0.05)
+
+		soltarTecla(codigo)
+
+	end)
+
+	return b
+end
+
+criarTecla(
+	"KeyT",
+	"T",
+	UDim2.new(0.40,0,0.12,0),
+	KEY.T
+)
+
+criarTecla(
+	"KeyR",
+	"R",
+	UDim2.new(0.45,0,0.12,0),
+	KEY.R
+)
+
+criarTecla(
+	"KeyE",
+	"E",
+	UDim2.new(0.50,0,0.12,0),
+	KEY.E
+)
+
+--------------------------------------------------
+-- I O
+--------------------------------------------------
+
+local keyI = criarBotao(
+	"KeyI",
+	"I",
+	UDim2.new(1,-110,0.20,0),
+	UDim2.new(0,40,0,40)
+)
+
+keyI.TextSize = 17
+teclaHold(keyI,KEY.I)
+
+local keyO = criarBotao(
+	"KeyO",
+	"O",
+	UDim2.new(1,-110,0.29,0),
+	UDim2.new(0,40,0,40)
+)
+
+keyO.TextSize = 17
+teclaHold(keyO,KEY.O)
+
+--------------------------------------------------
+-- NÚMEROS
+--------------------------------------------------
+
+local numberBar = Instance.new("Frame")
+
+numberBar.Name = "NumberBar"
+numberBar.Size = UDim2.new(0,470,0,40)
+
+numberBar.AnchorPoint = Vector2.new(0.5,0)
+
+numberBar.BackgroundTransparency = 1
+numberBar.Active = true
+
+aplicarPos(
+	numberBar,
+	"NumberBar",
+	UDim2.new(0.5,0,0,8)
+)
+
+numberBar.Parent = gui
+
+arrastavel(numberBar,"NumberBar")
+
+local keyCodes = {
+	[0] = KEY["0"],
+	[1] = KEY["1"],
+	[2] = KEY["2"],
+	[3] = KEY["3"],
+	[4] = KEY["4"],
+	[5] = KEY["5"],
+	[6] = KEY["6"],
+	[7] = KEY["7"],
+	[8] = KEY["8"],
+	[9] = KEY["9"]
+}
+
+local numeros = {}
+
+for i = 0,9 do
+
+	local b = Instance.new("TextButton")
+
+	b.Name = "Number_" .. i
+	b.Size = UDim2.new(0,40,0,40)
+
+	b.Position = UDim2.new(
+		0,
+		i * 42,
+		0,
+		0
+	)
+
+	b.Text = tostring(i)
+	b.TextSize = 16
+
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.BackgroundTransparency = 0.15
+
+	b.BorderSizePixel = 1
+	b.BorderColor3 = Color3.fromRGB(100,100,100)
+
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Active = true
+
+	b.Parent = numberBar
+
+	numeros[i] = b
+
+	b.MouseButton1Click:Connect(function()
+
+		if editando then
+			return
+		end
+
+		pressionarTecla(keyCodes[i])
+
+		task.wait(0.05)
+
+		soltarTecla(keyCodes[i])
+
+	end)
+
+end
+
+--------------------------------------------------
+-- ESCONDER NÚMEROS
+--------------------------------------------------
+
+local esconder = Instance.new("TextButton")
+
+esconder.Name = "HideNumbers"
+
+esconder.Size = UDim2.new(0,40,0,40)
+esconder.Position = UDim2.new(0,420,0,0)
+
+esconder.Text = "≡"
+esconder.TextSize = 20
+
+esconder.BackgroundColor3 = Color3.fromRGB(0,0,0)
+esconder.BackgroundTransparency = 0.15
+
+esconder.BorderSizePixel = 1
+esconder.BorderColor3 = Color3.fromRGB(100,100,100)
+
+esconder.TextColor3 = Color3.new(1,1,1)
+
+esconder.Active = true
+esconder.Parent = numberBar
+
+local numerosVisiveis = true
+
+esconder.MouseButton1Click:Connect(function()
+
+	if editando then
+		return
+	end
+
+	numerosVisiveis = not numerosVisiveis
+
+	for i = 0,9 do
+		numeros[i].Visible = numerosVisiveis
+	end
+
+	if numerosVisiveis then
+		esconder.Text = "≡"
+	else
+		esconder.Text = "0-9"
+	end
+
+end)
+
+--------------------------------------------------
+-- EDITOR
+--------------------------------------------------
+
+editor.MouseButton1Click:Connect(function()
+
+	editando = not editando
+
+	if editando then
+
+		soltarTodasAsTeclas()
+
+		editor.Text = "✓"
+		editor.BorderColor3 = Color3.fromRGB(0,255,0)
+
+	else
+
+		editor.Text = "☰"
+		editor.BorderColor3 = Color3.fromRGB(255,0,0)
+
+		soltarTodasAsTeclas()
+
+	end
+
+end)
+
+--------------------------------------------------
+-- FECHAR
+--------------------------------------------------
+
+fechar.MouseButton1Click:Connect(function()
+
+	getgenv().MiniControleDestroyed = true
+
+	soltarTodasAsTeclas()
+
+	getgenv().MiniControle = nil
+
+	pcall(function()
+		gui:Destroy()
+	end)
+
+end)
